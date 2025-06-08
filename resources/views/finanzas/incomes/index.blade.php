@@ -1,7 +1,7 @@
 <x-app-layout>
     <x-slot name="header">
         <h2 class="font-semibold text-xl text-gray-800 leading-tight">
-            {{ __('Lista de Gastos') }}
+            {{ __('Lista de Ingresos') }}
         </h2>
     </x-slot>
 
@@ -10,91 +10,98 @@
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
                     <div class="mb-4 flex justify-between items-center">
-                        <x-primary-button x-data="" x-on:click.prevent="$dispatch('open-modal', 'create-expense')"
-                            class="bg-red-600 hover:bg-red-700">
-                            {{ __('Registrar Nuevo Gasto') }}
+                        {{-- Contenedor para los botones de navegación --}}
+                        <div class="flex space-x-2">
+                            <a href="{{ route('finanzas.dashboard') }}" class="inline-flex items-center px-4 py-2 bg-blue-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-blue-600 focus:bg-blue-600 active:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                {{ __('Dashboard de Finanzas') }}
+                            </a>
+                            <a href="{{ route('finanzas.expenses.index') }}" class="inline-flex items-center px-4 py-2 bg-red-500 border border-transparent rounded-md font-semibold text-xs text-white uppercase tracking-widest hover:bg-red-600 focus:bg-red-600 active:bg-red-700 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2 transition ease-in-out duration-150">
+                                {{ __('Ver Gastos') }}
+                            </a>
+                        </div>
+                        {{-- Botón existente para Registrar Nuevo Ingreso --}}
+                        <x-primary-button x-data="" x-on:click.prevent="$dispatch('open-modal', 'create-income')">
+                            {{ __('Registrar Nuevo Ingreso') }}
                         </x-primary-button>
-
-                        @if(session('success'))
-                            <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative"
-                                role="alert">
-                                <span class="block sm:inline">{{ session('success') }}</span>
-                            </div>
-                        @endif
                     </div>
 
-                    {{-- Modal para crear gasto --}}
-                    <x-modal name="create-expense" :show="$errors->expenseCreation->isNotEmpty()" focusable>
-                        <form method="post" action="{{ route('expenses.store') }}" class="p-6">
+                    @if(session('success'))
+                        <div class="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded relative mt-4"
+                            role="alert">
+                            <span class="block sm:inline">{{ session('success') }}</span>
+                        </div>
+                    @endif
+
+                    {{-- Modal para crear ingreso --}}
+                    <x-modal name="create-income" :show="$errors->incomeCreation->isNotEmpty()" focusable>
+                        <form method="post" action="{{ route('finanzas.incomes.store') }}" class="p-6">
                             @csrf
 
                             <h2 class="text-lg font-medium text-gray-900">
-                                {{ __('Registrar Nuevo Gasto') }}
+                                {{ __('Registrar Nuevo Ingreso') }}
                             </h2>
 
                             <p class="mt-1 text-sm text-gray-600">
-                                {{ __('Completa los campos para añadir un nuevo gasto.') }}
+                                {{ __('Completa los campos para añadir un nuevo ingreso.') }}
                             </p>
 
                             <div class="mt-6">
-                                <x-input-label for="expense_category_id_modal" :value="__('Categoría del Gasto')" />
-                                <select id="expense_category_id_modal" name="expense_category_id"
+                                <x-input-label for="client_number_modal" :value="__('Número de Cliente (Opcional)')" />
+                                <x-text-input id="client_number_modal" class="block mt-1 w-full" type="text"
+                                    name="client_number" :value="old('client_number')" autofocus />
+                                <x-input-error :messages="$errors->incomeCreation->get('client_number')" class="mt-2" />
+                            </div>
+
+                            <div class="mt-4">
+                                <x-input-label for="amount_modal" :value="__('Monto (CLP sin decimales)')" />
+                                <x-text-input id="amount_modal" class="block mt-1 w-full" type="number" name="amount"
+                                    :value="old('amount')" required />
+                                <x-input-error :messages="$errors->incomeCreation->get('amount')" class="mt-2" />
+                            </div>
+
+                            <div class="mt-4">
+                                <x-input-label for="transaction_date_modal" :value="__('Fecha del Ingreso')" />
+                                <x-text-input id="transaction_date_modal" class="block mt-1 w-full flatpickr-input"
+                                    type="text" name="transaction_date"
+                                    value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" required />
+                                <x-input-error :messages="$errors->incomeCreation->get('transaction_date')"
+                                    class="mt-2" />
+                            </div>
+
+                            <div class="mt-4">
+                                <x-input-label for="type_modal" :value="__('Tipo de Ingreso')" />
+                                <select id="type_modal" name="type"
                                     class="block mt-1 w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                     required>
-                                    <option value="">Selecciona una categoría</option>
-                                    {{-- Usamos $expenseCategories que ya se pasa a la vista index --}}
-                                    @foreach($expenseCategories as $category)
-                                        <option value="{{ $category->id }}" {{ old('expense_category_id') == $category->id ? 'selected' : '' }}>{{ $category->name }}</option>
-                                    @endforeach
+                                    <option value="Mensualidad" {{ old('type') == 'Mensualidad' ? 'selected' : '' }}>
+                                        Mensualidad</option>
+                                    <option value="Instalacion" {{ old('type') == 'Instalacion' ? 'selected' : '' }}>
+                                        Instalación</option>
                                 </select>
-                                <x-input-error :messages="$errors->expenseCreation->get('expense_category_id')"
-                                    class="mt-2" />
+                                <x-input-error :messages="$errors->incomeCreation->get('type')" class="mt-2" />
                             </div>
 
                             <div class="mt-4">
-                                <x-input-label for="amount_modal_expense" :value="__('Monto (CLP sin decimales)')" />
-                                <x-text-input id="amount_modal_expense" class="block mt-1 w-full" type="number"
-                                    name="amount" :value="old('amount')" required />
-                                <x-input-error :messages="$errors->expenseCreation->get('amount')" class="mt-2" />
-                            </div>
-
-                            <div class="mt-4">
-                                <x-input-label for="transaction_date_modal_expense" :value="__('Fecha del Gasto')" />
-                                {{-- CAMBIO: type="text" y añadir clase flatpickr-input --}}
-                                <x-text-input id="transaction_date_modal_expense"
-                                    class="block mt-1 w-full flatpickr-input" type="text" name="transaction_date"
-                                    value="{{ \Carbon\Carbon::now()->format('Y-m-d') }}" required />
-                                <x-input-error :messages="$errors->expenseCreation->get('transaction_date')"
-                                    class="mt-2" />
-                                {{-- <small class="text-gray-500">Formato: dd-mm-yyyy</small> ELIMINAR ESTO YA NO ES
-                                NECESARIO --}}
-                            </div>
-
-                            <div class="mt-4">
-                                <x-input-label for="payment_method_modal_expense" :value="__('Método de Pago')" />
-                                <select id="payment_method_modal_expense" name="payment_method"
+                                <x-input-label for="payment_method_modal" :value="__('Método de Pago')" />
+                                <select id="payment_method_modal" name="payment_method"
                                     class="block mt-1 w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm"
                                     required>
                                     <option value="Efectivo" {{ old('payment_method') == 'Efectivo' ? 'selected' : '' }}>
                                         Efectivo</option>
+                                    <option value="Tarjeta Credito" {{ old('payment_method') == 'Tarjeta Credito' ? 'selected' : '' }}>Tarjeta Crédito</option>
+                                    <option value="Debito" {{ old('payment_method') == 'Debito' ? 'selected' : '' }}>
+                                        Débito</option>
                                     <option value="Transferencia" {{ old('payment_method') == 'Transferencia' ? 'selected' : '' }}>Transferencia</option>
                                 </select>
-                                <x-input-error :messages="$errors->expenseCreation->get('payment_method')"
+                                <x-input-error :messages="$errors->incomeCreation->get('payment_method')"
                                     class="mt-2" />
                             </div>
 
                             <div class="mt-4">
-                                <x-input-label for="assigned_to_modal" :value="__('Asignado a (Opcional)')" />
-                                <x-text-input id="assigned_to_modal" class="block mt-1 w-full" type="text"
-                                    name="assigned_to" :value="old('assigned_to')" />
-                                <x-input-error :messages="$errors->expenseCreation->get('assigned_to')" class="mt-2" />
-                            </div>
-
-                            <div class="mt-4">
-                                <x-input-label for="comment_modal_expense" :value="__('Comentario (Opcional)')" />
-                                <textarea id="comment_modal_expense" name="comment" rows="3"
+                                <x-input-label for="comment_modal" :value="__('Comentario (Opcional)')" />
+                                <textarea id="comment_modal" name="comment" rows="3"
                                     class="block mt-1 w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">{{ old('comment') }}</textarea>
-                                <x-input-error :messages="$errors->expenseCreation->get('comment')" class="mt-2" />
+                                <x-input-error :messages="$errors->incomeCreation->get('comment')" class="mt-2" />
                             </div>
 
                             <div class="mt-6 flex justify-end">
@@ -102,15 +109,15 @@
                                     {{ __('Cancelar') }}
                                 </x-secondary-button>
 
-                                <x-primary-button class="ms-3 bg-red-600 hover:bg-red-700">
-                                    {{ __('Registrar Gasto') }}
+                                <x-primary-button class="ms-3">
+                                    {{ __('Registrar Ingreso') }}
                                 </x-primary-button>
                             </div>
                         </form>
                     </x-modal>
 
-                    @if($expenses->isEmpty())
-                        <p class="text-gray-600">No hay gastos registrados aún.</p>
+                    @if($incomes->isEmpty())
+                        <p class="text-gray-600">No hay ingresos registrados aún.</p>
                     @else
                         <div class="overflow-x-auto">
                             <table class="min-w-full divide-y divide-gray-200">
@@ -118,7 +125,7 @@
                                     <tr>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Categoría
+                                            Cliente
                                         </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -130,11 +137,11 @@
                                         </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Método
+                                            Tipo
                                         </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                                            Asignado a
+                                            Método
                                         </th>
                                         <th scope="col"
                                             class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -146,35 +153,35 @@
                                     </tr>
                                 </thead>
                                 <tbody class="bg-white divide-y divide-gray-200">
-                                    @foreach($expenses as $expense)
+                                    @foreach($incomes as $income)
                                         <tr>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
-                                                {{ $expense->category->name ?? 'N/A' }}
+                                                {{ $income->client_number ?? 'N/A' }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                ${{ number_format($expense->amount, 0, ',', '.') }} CLP
+                                                ${{ number_format($income->amount, 0, ',', '.') }} CLP
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ \Carbon\Carbon::parse($expense->transaction_date)->format('d-m-Y') }}
+                                                {{ \Carbon\Carbon::parse($income->transaction_date)->format('d-m-Y') }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $expense->payment_method }}
+                                                {{ $income->type }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ $expense->assigned_to ?? 'N/A' }}
+                                                {{ $income->payment_method }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                                {{ Str::limit($expense->comment, 50) }}
+                                                {{ Str::limit($income->comment, 50) }}
                                             </td>
                                             <td class="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
-                                                <a href="{{ route('expenses.edit', $expense) }}"
+                                                <a href="{{ route('finanzas.incomes.edit', $income) }}"
                                                     class="text-indigo-600 hover:text-indigo-900 mr-2">Editar</a>
-                                                <form action="{{ route('expenses.destroy', $expense) }}" method="POST"
+                                                <form action="{{ route('finanzas.incomes.destroy', $income) }}" method="POST"
                                                     class="inline">
                                                     @csrf
                                                     @method('DELETE')
                                                     <button type="submit" class="text-red-600 hover:text-red-900"
-                                                        onclick="return confirm('¿Estás seguro de que quieres eliminar este gasto?');">Eliminar</button>
+                                                        onclick="return confirm('¿Estás seguro de que quieres eliminar este ingreso?');">Eliminar</button>
                                                 </form>
                                             </td>
                                         </tr>
@@ -183,7 +190,7 @@
                             </table>
                         </div>
                         <div class="mt-4">
-                            {{ $expenses->links() }}
+                            {{ $incomes->links() }}
                         </div>
                     @endif
                 </div>
@@ -192,20 +199,17 @@
     </div>
 
     @push('scripts')
-        {{-- Flatpickr CSS y JS --}}
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
         <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
         <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
 
         <script>
             document.addEventListener('DOMContentLoaded', function () {
-                // Inicializar Flatpickr para el campo de fecha en el modal de gastos
-                flatpickr("#transaction_date_modal_expense", {
-                    dateFormat: "Y-m-d", // Formato para el backend (año-mes-día)
-                    locale: "es", // Establecer el idioma a español
-                    allowInput: true, // Permite escribir la fecha manualmente
+                flatpickr("#transaction_date_modal", {
+                    dateFormat: "Y-m-d",
+                    locale: "es",
+                    allowInput: true,
                     onOpen: function (selectedDates, dateStr, instance) {
-                        // Puedes añadir lógica aquí si es necesario para reposicionar el modal
                     }
                 });
             });

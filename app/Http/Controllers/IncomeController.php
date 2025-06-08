@@ -20,14 +20,11 @@ class IncomeController extends Controller
     {
         $user = Auth::user();
 
-        // --- CORRECCIÓN: RE-AÑADIDA LA LÍNEA PARA $incomes ---
-        // Se mantiene para compatibilidad con cualquier otra parte de la vista que aún lo use
-        // aunque para "Últimos Registros" ahora usamos recentTransactions, recentIncomes, etc.
-        $incomes = $user->incomes()->latest()->limit(5)->get(); // Últimos 5 ingresos para la tabla, RE-AÑADIDO
-        // --- FIN CORRECCIÓN ---
+        // Se mantiene la variable $incomes por si alguna otra parte de la vista la usa,
+        // aunque para "Últimos Registros" usaremos $recentIncomes y $recentExpenses directamente
+        $incomes = $user->incomes()->latest()->limit(5)->get(); // Esto es independiente de los "Últimos Registros" de la tabla
 
-
-        // --- Lógica de Filtros para Gráficos y Totales (mantener sin cambios) ---
+        // --- Lógica de Filtros para Gráficos y Totales (Tu código existente) ---
         $startDate = $request->input('start_date') ? Carbon::createFromFormat('d-m-Y', $request->input('start_date'))->startOfDay() : null;
         $endDate = $request->input('end_date') ? Carbon::createFromFormat('d-m-Y', $request->input('end_date'))->endOfDay() : null;
         $filterType = $request->input('type'); // Para ingresos
@@ -103,6 +100,17 @@ class IncomeController extends Controller
         $expenseChartLabels = $dailyExpenses->pluck('date')->map(fn($date) => Carbon::parse($date)->format('d-m-Y'));
         $expenseChartData = $dailyExpenses->pluck('total_amount');
 
+        // =========================================================================
+        // AÑADE ESTAS LÍNEAS TEMPORALMENTE PARA DEPURAR LOS GRÁFICOS
+        // =========================================================================
+        //dump('Income Chart Labels:');
+        //dump($incomeChartLabels->toArray());
+        //dump('Income Chart Data:');
+        //dump($incomeChartData->toArray());
+        //dump('Expense Chart Labels:');
+        //dd('Expense Chart Data:', $expenseChartData->toArray());
+        // =========================================================================
+
         // Obtener todas las categorías de gasto
         $expenseCategories = ExpenseCategory::all();
 
@@ -118,34 +126,26 @@ class IncomeController extends Controller
         // Datos para el formulario del modal de Gastos (métodos de pago para gastos)
         $expensePaymentMethods = ['Efectivo', 'Transferencia'];
 
-
-        // --- Lógica: Últimos Registros (sin cambios, ya que esto crea las variables específicas para la tabla combinada) ---
-        $recentIncomes = $user->incomes()->latest()->limit(5)->get()->map(function ($item) {
+        // --- Lógica: Últimos Registros (mostrar 3 ingresos y 3 gastos por separado) ---
+        // Se mantiene orderBy('transaction_date', 'desc') asuming Opción 1 de solución de fechas será implementada
+        $recentIncomes = $user->incomes()->orderBy('transaction_date', 'desc')->take(3)->get()->map(function ($item) {
             $item->type_label = 'Ingreso';
-            $item->category_name = null; // Ingresos no tienen categoría de gasto
-            // Asegúrate de que los ingresos también tengan una 'description' o un campo similar para la tabla combinada
-            // Si 'client_number' es la descripción, puedes usarlo así:
-            $item->description = $item->client_number;
+            $item->category_name = null; // No hay categoría para ingresos
+            $item->client_description = $item->client_number; // Usamos client_number como descripción para ingresos
             return $item;
         });
 
-        $recentExpenses = $user->expenses()->with('category')->latest()->limit(5)->get()->map(function ($item) {
+        // Se mantiene orderBy('transaction_date', 'desc') asuming Opción 1 de solución de fechas será implementada
+        $recentExpenses = $user->expenses()->with('category')->orderBy('transaction_date', 'desc')->take(3)->get()->map(function ($item) {
             $item->type_label = 'Gasto';
             $item->category_name = $item->category ? $item->category->name : 'Sin Categoría';
-            // Asegúrate de que los gastos también tengan un 'client_number' o un campo similar para la tabla combinada
-            // Si 'assigned_to' o 'comment' es lo que quieres mostrar, úsalo aquí:
-            $item->client_number = $item->assigned_to ?? $item->comment; // O elige el campo más apropiado
+            $item->client_description = $item->assigned_to ?? $item->description; // Usamos assigned_to o description para gastos
             return $item;
         });
 
-        // Combinar y ordenar todos los registros recientes por fecha
-        $recentTransactions = $recentIncomes->merge($recentExpenses)
-            ->sortByDesc('transaction_date')
-            ->take(5); // Tomar solo los últimos 5 combinados
-
-
-        return view('dashboard', compact(
-            'incomes', // Esta variable ya está definida arriba.
+        // Pasa todos los datos necesarios a la vista de finanzas
+        return view('finanzas.finanzas', compact(
+            'incomes',
             'totalIncomes',
             'totalMonthlyIncomes',
             'totalInstallationIncomes',
@@ -164,7 +164,7 @@ class IncomeController extends Controller
             'incomeTypes',
             'paymentMethods',
             'expensePaymentMethods',
-            'recentTransactions',
+            // Pasa las colecciones separadas para la tabla principal
             'recentIncomes',
             'recentExpenses'
         ));
@@ -175,8 +175,8 @@ class IncomeController extends Controller
      */
     public function index()
     {
-        $incomes = Auth::user()->incomes()->latest()->paginate(10); // Pagina los ingresos
-        return view('incomes.index', compact('incomes'));
+        $incomes = Auth::user()->incomes()->latest()->paginate(10);
+        return view('finanzas.incomes.index', compact('incomes'));
     }
 
     /**
@@ -194,12 +194,15 @@ class IncomeController extends Controller
                 'comment' => 'nullable|string|max:1000',
             ]);
         } catch (ValidationException $e) {
-            return redirect()->route('dashboard')
+            return redirect()->route('finanzas.dashboard')
                 ->withInput()
                 ->withErrors($e->errors(), 'incomeCreation');
         }
 
-        $transactionDate = $request->transaction_date;
+        // Modificación para guardar la hora actual en transaction_date
+        $transactionDate = Carbon::createFromFormat('Y-m-d', $request->transaction_date)
+            ->setTime(Carbon::now()->hour, Carbon::now()->minute, Carbon::now()->second);
+
 
         Auth::user()->incomes()->create([
             'client_number' => $request->client_number,
@@ -210,7 +213,8 @@ class IncomeController extends Controller
             'comment' => $request->comment,
         ]);
 
-        return redirect()->route('dashboard')->with('success', 'Ingreso registrado exitosamente.');
+        // Redirigir al dashboard después de crear un ingreso
+        return redirect()->route('finanzas.dashboard')->with('success', 'Ingreso registrado exitosamente.');
     }
 
     /**
@@ -227,7 +231,7 @@ class IncomeController extends Controller
 
         $income->transaction_date_formatted = Carbon::parse($income->transaction_date)->format('Y-m-d');
 
-        return view('incomes.edit', compact('income', 'incomeTypes', 'paymentMethods'));
+        return view('finanzas.incomes.edit', compact('income', 'incomeTypes', 'paymentMethods'));
     }
 
     /**
@@ -248,7 +252,9 @@ class IncomeController extends Controller
             'comment' => 'nullable|string|max:1000',
         ]);
 
-        $transactionDate = $request->transaction_date;
+        // Modificación para guardar la hora actual en transaction_date
+        $transactionDate = Carbon::createFromFormat('Y-m-d', $request->transaction_date)
+            ->setTime(Carbon::now()->hour, Carbon::now()->minute, Carbon::now()->second);
 
         $income->update([
             'client_number' => $request->client_number,
@@ -259,7 +265,7 @@ class IncomeController extends Controller
             'comment' => $request->comment,
         ]);
 
-        return redirect()->route('incomes.index')->with('success', 'Ingreso actualizado exitosamente.');
+        return redirect()->route('finanzas.incomes.index')->with('success', 'Ingreso actualizado exitosamente.');
     }
 
     /**
@@ -273,6 +279,6 @@ class IncomeController extends Controller
 
         $income->delete();
 
-        return redirect()->route('incomes.index')->with('success', 'Ingreso eliminado exitosamente.');
+        return redirect()->route('finanzas.incomes.index')->with('success', 'Ingreso eliminado exitosamente.');
     }
 }

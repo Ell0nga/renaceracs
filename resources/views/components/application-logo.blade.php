@@ -6,7 +6,7 @@
     y LOGO RENACER LETRAS BLANCAS.jpg para modo oscuro.
 --}}
 
-<img src="{{ asset('images/LOGO RENACER LETRAS BLANCAS.png') }}"
+<img src="{{ asset('images/LOGO RENACER LETRAS NEGRAS 2.png') }}"
      alt="Logo Renacer (Modo Claro)"
      {{ $attributes->merge(['class' => 'block dark:hidden h-20 w-auto object-contain']) }}>
 

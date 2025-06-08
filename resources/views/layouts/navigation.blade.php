@@ -1,19 +1,22 @@
 <nav x-data="{ open: false }" class="bg-white border-b border-gray-100" x-cloak>
     <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div class="flex justify-between h-16">
-            <div class="flex items-center"> <div class="shrink-0 flex items-center">
+            <div class="flex items-center">
+                <div class="shrink-0 flex items-center">
+                    {{-- Logo principal, apunta al Dashboard Principal --}}
                     <a href="{{ route('dashboard') }}">
                         <x-application-logo class="block h-9 w-auto fill-current text-gray-800" />
                     </a>
                 </div>
 
                 {{-- Aseguramos que los enlaces estén centrados verticalmente --}}
-                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex items-center"> 
+                <div class="hidden space-x-8 sm:-my-px sm:ms-10 sm:flex items-center">
+                    {{-- Enlace al Dashboard Principal --}}
                     <x-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                         {{ __('Dashboard Principal') }}
                     </x-nav-link>
 
-                    {{-- El dropdown de finanzas debe tener sus propias clases de alineación si es necesario --}}
+                    {{-- Dropdown de Finanzas --}}
                     <x-dropdown align="left" width="48">
                         <x-slot name="trigger">
                             <button class="inline-flex items-center px-3 py-2 border border-transparent text-sm leading-4 font-medium rounded-md text-gray-500 bg-white hover:text-gray-700 focus:outline-none transition ease-in-out duration-150">
@@ -26,13 +29,16 @@
                             </button>
                         </x-slot>
                         <x-slot name="content">
-                            <x-dropdown-link :href="route('dashboard')">
+                            {{-- CORREGIDO: Enlace al Dashboard de Finanzas --}}
+                            <x-dropdown-link :href="route('finanzas.dashboard')">
                                 {{ __('Dashboard de Finanzas') }}
                             </x-dropdown-link>
-                            <x-dropdown-link :href="route('incomes.index')">
+                            {{-- CORREGIDO: Enlace a Ingresos --}}
+                            <x-dropdown-link :href="route('finanzas.incomes.index')">
                                 {{ __('Ingresos') }}
                             </x-dropdown-link>
-                            <x-dropdown-link :href="route('expenses.index')">
+                            {{-- CORREGIDO: Enlace a Gastos --}}
+                            <x-dropdown-link :href="route('finanzas.expenses.index')">
                                 {{ __('Gastos') }}
                             </x-dropdown-link>
                         </x-slot>
@@ -82,18 +88,23 @@
         </div>
     </div>
 
+    {{-- Menú Responsive (Móvil) --}}
     <div :class="{'block': open, 'hidden': ! open}" class="hidden sm:hidden">
         <div class="pt-2 pb-3 space-y-1">
+            {{-- Enlace Responsive al Dashboard Principal --}}
             <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
                 {{ __('Dashboard Principal') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('dashboard')" :active="request()->routeIs('dashboard')">
+            {{-- CORREGIDO: Enlace Responsive al Dashboard de Finanzas --}}
+            <x-responsive-nav-link :href="route('finanzas.dashboard')" :active="request()->routeIs('finanzas.dashboard')">
                 {{ __('Dashboard de Finanzas') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('incomes.index')" :active="request()->routeIs('incomes.index')">
+            {{-- CORREGIDO: Enlace Responsive a Ingresos --}}
+            <x-responsive-nav-link :href="route('finanzas.incomes.index')" :active="request()->routeIs('finanzas.incomes.index')">
                 {{ __('Ingresos') }}
             </x-responsive-nav-link>
-            <x-responsive-nav-link :href="route('expenses.index')" :active="request()->routeIs('expenses.index')">
+            {{-- CORREGIDO: Enlace Responsive a Gastos --}}
+            <x-responsive-nav-link :href="route('finanzas.expenses.index')" :active="request()->routeIs('finanzas.expenses.index')">
                 {{ __('Gastos') }}
             </x-responsive-nav-link>
         </div>

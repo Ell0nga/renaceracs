@@ -20,7 +20,8 @@ class ExpenseController extends Controller
         // Si necesitas pasar las categorías de gasto al index para OTRO modal de creación allí, déjalo.
         // Pero para el dashboard, ya las estamos pasando desde IncomeController@dashboard
         $expenseCategories = ExpenseCategory::all(); // Asegúrate de que esto siga siendo necesario para esta vista si no usas el dashboard
-        return view('expenses.index', compact('expenses', 'expenseCategories'));
+        // CAMBIO AQUÍ: La vista ahora está en 'finanzas.expenses.index'
+        return view('finanzas.expenses.index', compact('expenses', 'expenseCategories'));
     }
 
     // ELIMINAMOS EL MÉTODO 'create()' YA QUE EL FORMULARIO ESTÁ EN UN MODAL EN EL DASHBOARD.
@@ -54,7 +55,8 @@ class ExpenseController extends Controller
         } catch (ValidationException $e) {
             // Si hay errores de validación, redirigimos de nuevo al dashboard
             // con los errores en el errorBag 'expenseCreation'
-            return redirect()->route('dashboard')
+            // CAMBIO AQUÍ: Redirigir al dashboard de finanzas
+            return redirect()->route('finanzas.dashboard')
                 ->withInput()
                 ->withErrors($e->errors(), 'expenseCreation');
         }
@@ -71,8 +73,9 @@ class ExpenseController extends Controller
             'comment' => $request->comment,
         ]);
 
-        // Redireccionar al dashboard después de guardar exitosamente
-        return redirect()->route('dashboard')->with('success', 'Gasto registrado exitosamente.');
+        // Redireccionar al dashboard de finanzas después de guardar exitosamente
+        // CAMBIO AQUÍ: Redirigir al dashboard de finanzas
+        return redirect()->route('finanzas.dashboard')->with('success', 'Gasto registrado exitosamente.');
     }
 
     /**
@@ -90,7 +93,8 @@ class ExpenseController extends Controller
         // Formatear la fecha para el campo de entrada (type="date" necesita YYYY-MM-DD)
         $expense->transaction_date_formatted = Carbon::parse($expense->transaction_date)->format('Y-m-d');
 
-        return view('expenses.edit', compact('expense', 'expenseCategories', 'paymentMethods'));
+        // CAMBIO AQUÍ: La vista ahora está en 'finanzas.expenses.edit'
+        return view('finanzas.expenses.edit', compact('expense', 'expenseCategories', 'paymentMethods'));
     }
 
     /**
@@ -123,7 +127,8 @@ class ExpenseController extends Controller
             'comment' => $request->comment,
         ]);
 
-        return redirect()->route('expenses.index')->with('success', 'Gasto actualizado exitosamente.');
+        // CAMBIO AQUÍ: Redirigir a la lista de gastos bajo finanzas
+        return redirect()->route('finanzas.expenses.index')->with('success', 'Gasto actualizado exitosamente.');
     }
 
     /**
@@ -137,6 +142,7 @@ class ExpenseController extends Controller
 
         $expense->delete();
 
-        return redirect()->route('expenses.index')->with('success', 'Gasto eliminado exitosamente.');
+        // CAMBIO AQUÍ: Redirigir a la lista de gastos bajo finanzas
+        return redirect()->route('finanzas.expenses.index')->with('success', 'Gasto eliminado exitosamente.');
     }
 }
