@@ -9,7 +9,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('incomes.update', $income) }}">
+                    <form method="POST" action="{{ route('finanzas.incomes.update', $income) }}">
                         @csrf
                         @method('PUT')
 
@@ -27,9 +27,9 @@
 
                         <div class="mt-4">
                             <x-input-label for="transaction_date" :value="__('Fecha del Ingreso')" />
-                            <x-text-input id="transaction_date" class="block mt-1 w-full" type="text" name="transaction_date" :value="old('transaction_date', $income->transaction_date_formatted)" required />
+                            <x-text-input id="transaction_date" class="block mt-1 w-full flatpickr-input" type="text" name="transaction_date" :value="old('transaction_date', $income->transaction_date_formatted)" required />
                             <x-input-error :messages="$errors->get('transaction_date')" class="mt-2" />
-                            <small class="text-gray-500">Formato: dd-mm-yyyy</small>
+                            <small class="text-gray-500">Formato visible: dd-mm-yyyy</small>
                         </div>
 
                         <div class="mt-4">
@@ -68,4 +68,22 @@
             </div>
         </div>
     </div>
+
+    @push('scripts')
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+        <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/es.js"></script>
+
+        <script>
+            document.addEventListener('DOMContentLoaded', function () {
+                flatpickr("#transaction_date", {
+                    dateFormat: "Y-m-d", // formato para enviar al backend
+                    altInput: true,
+                    altFormat: "d-m-Y", // formato visible al usuario
+                    locale: "es",
+                    allowInput: true
+                });
+            });
+        </script>
+    @endpush
 </x-app-layout>

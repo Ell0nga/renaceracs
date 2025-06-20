@@ -6,10 +6,15 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Spatie\Permission\Traits\HasRoles; // Esta línea es correcta
+
+// Si estás usando Laravel Sanctum para API tokens, descomenta la siguiente línea:
+// use Laravel\Sanctum\HasApiTokens; 
 
 class User extends Authenticatable
 {
-    use HasFactory, Notifiable;
+    // Consolida todos los traits en una sola línea 'use':
+    use HasFactory, Notifiable, HasRoles; // Eliminamos HasApiTokens si no lo necesitas, y unificamos.
 
     /**
      * The attributes that are mass assignable.
@@ -18,6 +23,7 @@ class User extends Authenticatable
      */
     protected $fillable = [
         'name',
+        'username',
         'email',
         'password',
     ];

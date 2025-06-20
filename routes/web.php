@@ -1,60 +1,68 @@
 <?php
 
+use App\Http\Controllers\AgendaController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\IncomeController;
 use App\Http\Controllers\ExpenseController;
-
+use App\Http\Controllers\UserController;
+use App\Http\Controllers\CategoryController;
 use Illuminate\Support\Facades\Route;
 use Illuminate\Support\Facades\Auth;
+use App\Models\AgendaEvent;
+use Carbon\Carbon;
 
-// Redirige la ruta raíz a /dashboard si el usuario está autenticado
-// De lo contrario, muestra la página de bienvenida de Laravel (o la de login si no hay bienvenida)
+
+
+
 Route::get('/', function () {
     if (Auth::check()) {
-        return redirect()->route('dashboard'); // Ahora apunta al NUEVO dashboard de botones
+        return redirect()->route('dashboard');
     }
     return view('welcome');
 });
 
-// Rutas protegidas por autenticación y verificación de email
+Route::get('/finanzas', function () {
+    return redirect()->route('finanzas.dashboard');
+})->name('finanzas');
+
 Route::middleware(['auth', 'verified'])->group(function () {
-    // *******************************************************************
-    // NUEVA RUTA PARA EL DASHBOARD PRINCIPAL (CON BOTONES)
-    // Este cargará resources/views/dashboard.blade.php
-    // *******************************************************************
     Route::get('/dashboard', function () {
-        return view('dashboard'); // Esta vista es la nueva con los botones
+        return view('dashboard');
     })->name('dashboard');
 
-    // *******************************************************************
-    // RUTA PARA EL DASHBOARD DE FINANZAS (Ingresos y Gastos)
-    // Este es tu dashboard anterior, ahora con una URL y nombre dedicados.
-    // *******************************************************************
+    // Dashboard de Finanzas
     Route::get('/finanzas/dashboard', [IncomeController::class, 'dashboard'])->name('finanzas.dashboard');
 
-    // *******************************************************************
-    // NUEVO GRUPO DE RUTAS PARA INGRESOS Y GASTOS BAJO /finanzas/
-    // Esto asegura URLs como /finanzas/incomes y nombres como finanzas.incomes.index
-    // *******************************************************************
+    // Finanzas: Ingresos, Gastos y Categorías
     Route::prefix('finanzas')->name('finanzas.')->group(function () {
-        // Rutas para Ingresos (CRUD básico)
-        // Usamos Route::resource para simplificar las rutas de IncomeController
-        // Excluimos 'show' si no tienes una vista específica para mostrar un solo ingreso.
         Route::resource('incomes', IncomeController::class)->except(['show']);
-
-        // Rutas para Gastos (CRUD básico)
-        // Usamos Route::resource para simplificar las rutas de ExpenseController
-        // Excluimos 'create' porque el formulario está en un modal en el dashboard
-        // Excluimos 'show' si no tienes una vista específica para mostrar un solo gasto.
         Route::resource('expenses', ExpenseController::class)->except(['create', 'show']);
+        Route::post('/categories', [CategoryController::class, 'store'])->name('categories.store');
+
+        // Ruta para generar reportes en PDF
+        Route::get('/reportes/generar', [IncomeController::class, 'generateReportPdf'])->name('reportes.generar');
     });
 
+    // Agenda
 
-    // Rutas del perfil de usuario (gestionadas por Breeze) - SIN CAMBIOS
+
+    Route::get('/agenda', [AgendaController::class, 'cards'])->name('agenda.cards');
+    Route::post('/agenda', [AgendaController::class, 'store'])->name('agenda.store');
+    
+    // Perfil de usuario
     Route::get('/profile', [ProfileController::class, 'edit'])->name('profile.edit');
     Route::patch('/profile', [ProfileController::class, 'update'])->name('profile.update');
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
+
+    // Gestión de usuarios para administrador
+    Route::middleware('role:administrador')->group(function () {
+        Route::get('/users', [UserController::class, 'index'])->name('users.index');
+        Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        Route::post('/users', [UserController::class, 'store'])->name('users.store');
+        Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
+        Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+    });
 });
 
-// Rutas de autenticación generadas por Breeze (login, register, etc.) - SIN CAMBIOS
 require __DIR__ . '/auth.php';
