@@ -24,20 +24,20 @@
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 
-<body class="font-sans antialiased bg-gray-100">
+<body class="font-sans antialiased bg-repeat" style="background-image: url('{{ asset('images/wsp.png') }}'); background-color: #ECE5DD;">
     <div class="min-h-screen">
         @include('layouts.navigation')
 
         @if (isset($header))
             <header class="bg-white shadow w-full">
-                <div class="w-full px-4 sm:px-6 lg:px-8">
+                <div class="max-w-screen-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8">
                     {{ $header }}
                 </div>
             </header>
         @endif
 
         <main class="w-full">
-            <div class="w-full px-4 sm:px-6 lg:px-8">
+            <div class="max-w-screen-2xl mx-auto py-6 px-4 sm:px-6 lg:px-8"> 
                 {{ $slot }}
             </div>
         </main>

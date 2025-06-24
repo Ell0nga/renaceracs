@@ -26,7 +26,7 @@ class IncomeController extends Controller
         $expensePaymentMethods = ['Efectivo', 'Transferencia'];
         $expenseCategories = ExpenseCategory::all();
 
-        // Obtener fechas y filtros de la request
+        // Obtener fechas y filtros de la request para el dashboard
         $startDate = $request->input('start_date') ? Carbon::createFromFormat('d-m-Y', $request->input('start_date'))->startOfDay() : null;
         $endDate = $request->input('end_date') ? Carbon::createFromFormat('d-m-Y', $request->input('end_date'))->endOfDay() : null;
         $filterType = $request->input('type');
@@ -46,66 +46,52 @@ class IncomeController extends Controller
         }
 
         // --- PAGINACIÓN PARA LAS TABLAS PRINCIPALES (INGRESOS Y GASTOS) ---
-        // ESTO ES LO QUE ARREGLA EL ERROR links()
         $incomes = (clone $baseIncomesQuery)->latest()->paginate(10, ['*'], 'income_page');
         $expenses = (clone $baseExpensesQuery)->with('category')->latest()->paginate(10, ['*'], 'expense_page');
 
-        // --- Lógica para calcular totales de ingresos (clonando la consulta base para aplicar filtros específicos) ---
+        // --- Lógica para calcular totales de ingresos ---
         $totalIncomesQuery = (clone $baseIncomesQuery);
         if ($filterType)
             $totalIncomesQuery->where('type', $filterType);
-        $totalIncomes = $totalIncomesQuery->sum('amount'); // Total REAL de todos los ingresos
+        $totalIncomes = $totalIncomesQuery->sum('amount');
 
-        // Lógica para calcular ingresos por tipo (Mensualidad, Instalacion) - REALES
         $monthlyIncomesQuery = (clone $baseIncomesQuery)->where('type', 'Mensualidad');
         $installationIncomesQuery = (clone $baseIncomesQuery)->where('type', 'Instalacion');
 
-        $totalMonthlyIncomes = $monthlyIncomesQuery->sum('amount'); // Total REAL de mensualidades
-        $totalInstallationIncomes = $installationIncomesQuery->sum('amount'); // Total REAL de instalaciones
+        $totalMonthlyIncomes = $monthlyIncomesQuery->sum('amount');
+        $totalInstallationIncomes = $installationIncomesQuery->sum('amount');
 
-        // Lógica para calcular total de gastos - REALES
+        // Lógica para calcular total de gastos
         $totalExpensesQuery = (clone $baseExpensesQuery);
         if ($filterExpenseCategory)
             $totalExpensesQuery->where('expense_category_id', $filterExpenseCategory);
-        $totalExpenses = $totalExpensesQuery->sum('amount'); // Total REAL de gastos
+        $totalExpenses = $totalExpensesQuery->sum('amount');
 
-        // Cálculo del ingreso neto global (REAL)
+        // Cálculo del ingreso neto global
         $netIncome = $totalIncomes - $totalExpenses;
 
-        // ***** NUEVA LÓGICA: CÁLCULOS AJUSTADOS PARA LA VISUALIZACIÓN DE LAS TARJETAS *****
-        $displayTotalIncomes = $totalIncomes; // Esto es $totalMonthlyIncomes + $totalInstallationIncomes
-        $displayMonthlyIncomes = $totalMonthlyIncomes; // Valor REAL de mensualidades
-        $displayInstallationIncomes = $totalInstallationIncomes; // Valor REAL de instalaciones
+        // ***** CÁLCULOS AJUSTADOS PARA LAS TARJETAS *****
+        // Estas variables son específicamente para las tarjetas del dashboard
+        $displayTotalIncomes = $totalIncomes;
+        $displayMonthlyIncomes = $totalMonthlyIncomes;
+        $displayInstallationIncomes = $totalInstallationIncomes;
 
-        // Calcular el déficit o superávit de instalaciones vs gastos
         $installationCoverageBalance = $totalInstallationIncomes - $totalExpenses;
+        $displayInstallationDeficit = $installationCoverageBalance < 0 ? abs($installationCoverageBalance) : 0;
 
-        // Determinar el monto del déficit de instalaciones a mostrar en la tarjeta de gastos (solo si hay déficit)
-        $displayInstallationDeficit = 0;
-        if ($installationCoverageBalance < 0) {
-            $displayInstallationDeficit = abs($installationCoverageBalance); // El valor absoluto del déficit
-        }
-
-        // ************************************************************************************************
-
-        // ***** LÓGICA ESPECÍFICA PARA LA TARJETA "INGRESO NETO GLOBAL" *****
         $displayNetMonthlyIncomes = 0;
         $displayNetInstallationIncomes = 0;
 
         if ($installationCoverageBalance >= 0) {
-            // Caso 1: Instalaciones cubrieron los gastos (o hay superávit)
-            $displayNetMonthlyIncomes = $totalMonthlyIncomes; // Mensualidades quedan intactas
-            $displayNetInstallationIncomes = $installationCoverageBalance; // Es el remanente de instalaciones
+            $displayNetMonthlyIncomes = $totalMonthlyIncomes;
+            $displayNetInstallationIncomes = $installationCoverageBalance;
         } else {
-            // Caso 2: Gastos excedieron las instalaciones (hay déficit)
-            $excessExpensesNotCoveredByInstallations = abs($installationCoverageBalance); // El monto que falta de instalaciones
-            $displayNetMonthlyIncomes = $totalMonthlyIncomes - $excessExpensesNotCoveredByInstallations; // Mensualidades cubren el resto
-            $displayNetInstallationIncomes = 0; // Las instalaciones se consumieron completamente
+            $excessExpensesNotCoveredByInstallations = abs($installationCoverageBalance);
+            $displayNetMonthlyIncomes = $totalMonthlyIncomes - $excessExpensesNotCoveredByInstallations;
+            $displayNetInstallationIncomes = 0;
         }
 
-        // ********************************************************************
-
-        // Lógica para gráficos de ingresos diarios (clonando la consulta base)
+        // Lógica para gráficos de ingresos diarios
         $dailyIncomes = (clone $baseIncomesQuery)
             ->select(DB::raw('DATE(transaction_date) as date'), DB::raw('SUM(amount) as total_amount'))
             ->when($filterType, fn($query) => $query->where('type', $filterType))
@@ -116,7 +102,7 @@ class IncomeController extends Controller
         $incomeChartLabels = $dailyIncomes->pluck('date')->map(fn($date) => Carbon::parse($date)->format('d-m-Y'));
         $incomeChartData = $dailyIncomes->pluck('total_amount');
 
-        // Lógica para gráficos de gastos diarios (clonando la consulta base)
+        // Lógica para gráficos de gastos diarios
         $dailyExpenses = (clone $baseExpensesQuery)
             ->select(DB::raw('DATE(transaction_date) as date'), DB::raw('SUM(amount) as total_amount'))
             ->when($filterExpenseCategory, fn($query) => $query->where('expense_category_id', $filterExpenseCategory))
@@ -127,11 +113,9 @@ class IncomeController extends Controller
         $expenseChartLabels = $dailyExpenses->pluck('date')->map(fn($date) => Carbon::parse($date)->format('d-m-Y'));
         $expenseChartData = $dailyExpenses->pluck('total_amount');
 
-        // Datos para los inputs de filtro de fecha (mantienen el formato d-m-Y para la vista)
         $startDateInput = $startDate ? $startDate->format('d-m-Y') : null;
         $endDateInput = $endDate ? $endDate->format('d-m-Y') : null;
 
-        // Últimos 3 ingresos (estos NO necesitan paginación, son solo para "recientes")
         $recentIncomes = $user->incomes()->orderBy('transaction_date', 'desc')->take(3)->get()->map(function ($item) {
             $item->type_label = 'Ingreso';
             $item->category_name = null;
@@ -139,7 +123,6 @@ class IncomeController extends Controller
             return $item;
         });
 
-        // Últimos 3 gastos (estos NO necesitan paginación, son solo para "recientes")
         $recentExpenses = $user->expenses()->with('category')->orderBy('transaction_date', 'desc')->take(3)->get()->map(function ($item) {
             $item->type_label = 'Gasto';
             $item->category_name = $item->category ? $item->category->name : 'Sin Categoría';
@@ -147,10 +130,9 @@ class IncomeController extends Controller
             return $item;
         });
 
-        // Retornar la vista con todas las variables necesarias
         return view('finanzas.finanzas', compact(
-            'incomes', // AHORA ES UN OBJETO PAGINADO
-            'expenses', // AHORA ES UN OBJETO PAGINADO
+            'incomes',
+            'expenses',
             'totalIncomes',
             'totalMonthlyIncomes',
             'totalInstallationIncomes',
@@ -175,8 +157,8 @@ class IncomeController extends Controller
             'incomeTypes',
             'paymentMethods',
             'expensePaymentMethods',
-            'recentIncomes', // Estos siguen siendo colecciones simples, lo cual es correcto para "recientes"
-            'recentExpenses' // Estos siguen siendo colecciones simples, lo cual es correcto para "recientes"
+            'recentIncomes',
+            'recentExpenses'
         ));
     }
 
@@ -202,7 +184,7 @@ class IncomeController extends Controller
             $query->whereDate('transaction_date', Carbon::createFromFormat('d-m-Y', $request->transaction_date)->format('Y-m-d'));
         }
 
-        $incomes = $query->paginate(10); // Esta paginación está correcta para finanzas.incomes.index
+        $incomes = $query->paginate(10);
 
         $incomeTypes = ['Mensualidad', 'Instalacion'];
         $paymentMethods = ['Efectivo', 'Tarjeta Credito', 'Debito', 'Transferencia'];
@@ -310,97 +292,133 @@ class IncomeController extends Controller
 
     public function generateReportPdf(Request $request)
     {
-        $startDate = $request->input('start_date') ? Carbon::createFromFormat('d-m-Y', $request->input('start_date'))->startOfDay() : null;
-        $endDate = $request->input('end_date') ? Carbon::createFromFormat('d-m-Y', $request->input('end_date'))->endOfDay() : null;
-        $reportType = $request->input('report_type', 'both'); // 'both', 'incomes', 'expenses'
-        $includeDetails = $request->boolean('include_details', true); // Por defecto, incluir detalles
+        set_time_limit(60); // Aumenta el tiempo de ejecución a 60 segundos si es necesario
 
-        // --- Calcular Ingresos Brutos ---
-        $queryIncomes = Income::query();
+        $user = Auth::user();
+
+        // 1. Obtener los parámetros del request (filtros) para el reporte
+        // Asegúrate que los inputs 'start_date' y 'end_date' vengan en formato 'Y-m-d'
+        $startDateParam = $request->input('start_date');
+        $endDateParam = $request->input('end_date');
+        $reportCategory = $request->input('report_category', 'both'); // 'all', 'incomes', 'expenses', 'both'
+        $includeDetails = $request->boolean('include_details', true);
+        $generateEnvelope = $request->boolean('generate_envelope', false); // Para el sobre, si se genera desde aquí
+
+        // Convertir fechas de string a Carbon objects
+        $startDate = $startDateParam ? Carbon::createFromFormat('Y-m-d', $startDateParam)->startOfDay() : null;
+        $endDate = $endDateParam ? Carbon::createFromFormat('Y-m-d', $endDateParam)->endOfDay() : null;
+
+        // 2. --- Consultas base para INCOMES y EXPENSES, con filtros de fecha ---
+        // Se usarán para calcular los totales y obtener los detalles
+        $baseIncomesQuery = $user->incomes();
+        $baseExpensesQuery = $user->expenses();
+
         if ($startDate) {
-            $queryIncomes->where('transaction_date', '>=', $startDate);
+            $baseIncomesQuery->whereDate('transaction_date', '>=', $startDate);
+            $baseExpensesQuery->whereDate('transaction_date', '>=', $startDate);
         }
         if ($endDate) {
-            $queryIncomes->where('transaction_date', '<=', $endDate);
+            $baseIncomesQuery->whereDate('transaction_date', '<=', $endDate);
+            $baseExpensesQuery->whereDate('transaction_date', '<=', $endDate);
         }
 
-        $totalIncomes = $queryIncomes->sum('amount');
-        $monthlyIncomes = (clone $queryIncomes)->where('type', 'Mensualidad')->sum('amount');
-        $installationIncomes = (clone $queryIncomes)->where('type', 'Instalacion')->sum('amount');
+        // 3. --- Lógica para calcular TOTALES del REPORTE (Alineada con tu dashboard) ---
+        // Calcula TODOS los ingresos del período (mensualidades + instalaciones)
+        $totalIncomes = (clone $baseIncomesQuery)->sum('amount');
 
-        // --- Calcular Gastos ---
-        $queryExpenses = Expense::query();
-        if ($startDate) {
-            $queryExpenses->where('transaction_date', '>=', $startDate);
-        }
-        if ($endDate) {
-            $queryExpenses->where('transaction_date', '<=', $endDate);
-        }
-        $totalExpenses = $queryExpenses->sum('amount');
+        // Calcula ingresos por tipo
+        $monthlyIncomes = (clone $baseIncomesQuery)->where('type', 'Mensualidad')->sum('amount');
+        $installationIncomes = (clone $baseIncomesQuery)->where('type', 'Instalacion')->sum('amount');
 
-        // --- Calcular Ingresos Netos y Déficits (Lógica actual) ---
-        $installationNetIncome = $installationIncomes - $totalExpenses;
-        $monthlyNetIncome = 0;
-        $installationDeficit = 0;
+        // Calcula gastos totales
+        $totalExpenses = (clone $baseExpensesQuery)->sum('amount');
 
-        if ($installationNetIncome < 0) {
-            $installationDeficit = abs($installationNetIncome);
-            $monthlyNetIncome = $monthlyIncomes - $installationDeficit;
-            $netIncome = $totalIncomes - $totalExpenses; // TotalIncomes - TotalExpenses
-        } else {
-            $monthlyNetIncome = $monthlyIncomes; // Mensualidades no afectadas si Instalaciones cubren gastos
-            $netIncome = $totalIncomes - $totalExpenses; // TotalIncomes - TotalExpenses
-        }
+        // Cálculo del ingreso neto global
+        $netIncome = $totalIncomes - $totalExpenses;
 
-        // --- Preparar datos para detalles (si se solicitan) ---
-        $incomeDetails = [];
-        $expenseDetails = [];
+        // Cálculo del déficit de instalaciones (si aplica)
+        $installationCoverageBalance = $installationIncomes - $totalExpenses;
+        $installationDeficit = $installationCoverageBalance < 0 ? abs($installationCoverageBalance) : 0;
 
-        if ($includeDetails) {
-            if ($reportType === 'incomes' || $reportType === 'both') {
-                $incomeDetails = (clone $queryIncomes)->orderBy('transaction_date', 'asc')->get();
-            }
-            if ($reportType === 'expenses' || $reportType === 'both') {
-                $expenseDetails = (clone $queryExpenses)->with('category')->orderBy('transaction_date', 'asc')->get();
-            }
-        }
-
-        // --- Formatear fechas para el encabezado del reporte ---
+        // 4. Definir el Período y Tipo de Reporte para la vista
         $periodo = '';
         if ($startDate && $endDate) {
-            $periodo = $startDate->format('d-m-Y') . ' al ' . $endDate->format('d-m-Y');
+            $periodo = $startDate->format('d/m/Y') . ' al ' . $endDate->format('d/m/Y');
         } elseif ($startDate) {
-            $periodo = $startDate->format('d-m-Y') . ' al Fin';
+            $periodo = 'Desde ' . $startDate->format('d/m/Y');
         } elseif ($endDate) {
-            $periodo = 'Inicio al ' . $endDate->format('d-m-Y');
+            $periodo = 'Hasta ' . $endDate->format('d/m/Y');
         } else {
+            // Si no hay fechas, podría ser "Mes Actual" o "Año Actual" por defecto, o "Todo el Período"
+            // Aquí puedes ajustar la lógica para que coincida con lo que tu dashboard muestra por defecto
             $periodo = 'Todo el Período';
         }
 
+        $reportTypeLabel = ''; // Variable que la vista 'finances_report.blade.php' espera como $reportType
+        if ($reportCategory === 'incomes') {
+            $reportTypeLabel = 'Solo Ingresos';
+        } elseif ($reportCategory === 'expenses') {
+            $reportTypeLabel = 'Solo Gastos';
+        } elseif ($reportCategory === 'both') {
+            $reportTypeLabel = 'Ingresos y Gastos';
+        } else {
+            $reportTypeLabel = 'General';
+        }
+
+        // 5. Preparar datos de DETALLE (solo si includeDetails es true y según la categoría del reporte)
+        $incomeDetails = collect();
+        $expenseDetails = collect();
+
+        if ($includeDetails) {
+            if ($reportCategory === 'incomes' || $reportCategory === 'both') {
+                $incomeDetails = (clone $baseIncomesQuery)->get();
+            }
+            if ($reportCategory === 'expenses' || $reportCategory === 'both') {
+                $expenseDetails = (clone $baseExpensesQuery)->with('category')->get(); // Incluye categoría para gastos
+            }
+        }
+
+        // 6. Preparar datos específicos para el SOBRE (si generateEnvelope es true)
+        // La lógica del sobre suele ser para un día específico o mensualidades de un período.
+        // Aquí se usa el $monthlyIncomes calculado arriba para el monto a entregar.
+        $deliveryDate = $startDate ? $startDate->format('d/m/Y') : Carbon::now()->format('d/m/Y');
+        $amountToDeliver = $monthlyIncomes; // Monto total de mensualidades para el sobre
+
+        // Detalles de mensualidades para el sobre (limitado, como lo tenías para caber en el sobre)
+        $monthlyDetailsForEnvelope = $includeDetails ? (clone $user->incomes()->where('type', 'Mensualidad')->when($startDate, fn($q) => $q->whereDate('transaction_date', '>=', $startDate))->when($endDate, fn($q) => $q->whereDate('transaction_date', '<=', $endDate)))->orderBy('transaction_date', 'asc')->take(8)->get() : collect();
+
+
+        // 7. Preparar el array de datos que se pasará a la VISTA DEL PDF
         $data = [
+            // Variables para el REPORTE FINANCIERO GENERAL (finances_report.blade.php)
             'periodo' => $periodo,
-            'reportType' => $reportType,
-            'includeDetails' => $includeDetails,
-
-            // Ingresos Brutos
+            'reportType' => $reportTypeLabel, // Se pasa como $reportType a la vista
             'totalIncomes' => $totalIncomes,
-            'monthlyIncomes' => $monthlyIncomes,
-            'installationIncomes' => $installationIncomes,
-
-            // Gastos
+            'monthlyIncomes' => $monthlyIncomes, // Total de ingresos por Mensualidad
+            'installationIncomes' => $installationIncomes, // Total de ingresos por Instalacion
             'totalExpenses' => $totalExpenses,
+            'netIncome' => $netIncome, // Ingreso neto global (total ingresos - total gastos)
+            'installationDeficit' => $installationDeficit,
+            'includeDetails' => $includeDetails,
+            'incomeDetails' => $incomeDetails, // Detalles de ingresos si se solicitan
+            'expenseDetails' => $expenseDetails, // Detalles de gastos si se solicitan
 
-            // Cálculos Netos
-            'netIncome' => $netIncome, // Ingreso Neto Global (Bruto Total - Gasto Total)
-            'installationDeficit' => $installationDeficit, // Déficit de instalaciones (si existe)
-            'finalMonthlyIncome' => $monthlyIncomes - ($installationDeficit > 0 ? $installationDeficit : 0), // Mensualidades después de cubrir déficit
-
-            // Detalles de transacciones
-            'incomeDetails' => $incomeDetails,
-            'expenseDetails' => $expenseDetails,
+            // Variables específicas para el SOBRE (envelope_report.blade.php)
+            // Se incluyen aquí porque si generateEnvelope=true, se usa este $data
+            'deliveryDate' => $deliveryDate,
+            'amountToDeliver' => $amountToDeliver,
+            'monthlyDetails' => $monthlyDetailsForEnvelope,
+            'totalMonthlyIncomes' => $monthlyIncomes, // Reutiliza el cálculo de monthlyIncomes para el total del sobre
         ];
 
-        $pdf = PDF::loadView('reports.finances_report', $data); // Asegúrate de que la vista exista
-        return $pdf->download('reporte_financiero_' . Carbon::now()->format('Ymd_His') . '.pdf');
+        // 8. Generar el PDF basado en el tipo de solicitud
+        if ($generateEnvelope) {
+            $pdf = PDF::loadView('reports.envelope_report', $data)->setPaper('legal', 'portrait');
+            return $pdf->download('sobre_mensualidades_' . Carbon::now()->format('Ymd_His') . '.pdf');
+        } else {
+            // Este es el caso cuando se genera el REPORTE FINANCIERO
+            $pdf = PDF::loadView('reports.finances_report', $data)->setPaper('letter', 'portrait');
+            return $pdf->download('reporte_financiero_' . Carbon::now()->format('Ymd_His') . '.pdf');
+        }
     }
 }

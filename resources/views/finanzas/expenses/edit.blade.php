@@ -9,7 +9,7 @@
         <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg">
                 <div class="p-6 text-gray-900">
-                    <form method="POST" action="{{ route('expenses.update', $expense) }}">
+                    <form method="POST" action="{{ route('finanzas.expenses.update', $expense) }}">
                         @csrf
                         @method('PUT')
 
@@ -31,9 +31,8 @@
 
                         <div class="mt-4">
                             <x-input-label for="transaction_date" :value="__('Fecha del Gasto')" />
-                            <x-text-input id="transaction_date" class="block mt-1 w-full" type="text" name="transaction_date" :value="old('transaction_date', $expense->transaction_date_formatted)" required />
+                            <x-text-input id="transaction_date" class="block mt-1 w-full" type="date" name="transaction_date" :value="old('transaction_date', $expense->transaction_date_formatted)" required />
                             <x-input-error :messages="$errors->get('transaction_date')" class="mt-2" />
-                            <small class="text-gray-500">Formato: dd-mm-yyyy</small>
                         </div>
 
                         <div class="mt-4">
@@ -59,9 +58,8 @@
                         </div>
 
                         <div class="flex items-center justify-end mt-4">
-                            <x-primary-button class="ms-4">
-                                {{ __('Actualizar Gasto') }}
-                            </x-primary-button>
+                            <x-secondary-button x-on:click="$dispatch('close')">Cancelar</x-secondary-button>
+                            <x-primary-button class="ms-4">Actualizar Gasto</x-primary-button>
                         </div>
                     </form>
                 </div>

@@ -17,25 +17,9 @@ class ExpenseController extends Controller
     public function index()
     {
         $expenses = Auth::user()->expenses()->with('category')->latest()->paginate(10); // Pagina los gastos y carga la categoría
-        // Si necesitas pasar las categorías de gasto al index para OTRO modal de creación allí, déjalo.
-        // Pero para el dashboard, ya las estamos pasando desde IncomeController@dashboard
         $expenseCategories = ExpenseCategory::all(); // Asegúrate de que esto siga siendo necesario para esta vista si no usas el dashboard
-        // CAMBIO AQUÍ: La vista ahora está en 'finanzas.expenses.index'
         return view('finanzas.expenses.index', compact('expenses', 'expenseCategories'));
     }
-
-    // ELIMINAMOS EL MÉTODO 'create()' YA QUE EL FORMULARIO ESTÁ EN UN MODAL EN EL DASHBOARD.
-    // Su lógica (pasar currentDate, expenseCategories, paymentMethods) ahora la maneja IncomeController@dashboard
-    /*
-    public function create()
-    {
-        $currentDate = Carbon::now()->format('d-m-Y');
-        $expenseCategories = ExpenseCategory::all();
-        $paymentMethods = ['Efectivo', 'Transferencia'];
-
-        return view('expenses.create', compact('currentDate', 'expenseCategories', 'paymentMethods'));
-    }
-    */
 
     /**
      * Almacena un nuevo gasto en la base de datos.
@@ -44,7 +28,7 @@ class ExpenseController extends Controller
     {
         try {
             // Modificamos la validación para usar un errorBag específico
-            $request->validateWithBag('expenseCreation', [ // <--- Aquí el cambio
+            $request->validateWithBag('expenseCreation', [
                 'expense_category_id' => 'required|exists:expense_categories,id',
                 'amount' => 'required|integer|min:0',
                 'transaction_date' => 'required|date_format:Y-m-d', // Cambiado a Y-m-d
@@ -53,10 +37,8 @@ class ExpenseController extends Controller
                 'comment' => 'nullable|string|max:1000',
             ]);
         } catch (ValidationException $e) {
-            // Si hay errores de validación, redirigimos de nuevo al dashboard
-            // con los errores en el errorBag 'expenseCreation'
-            // CAMBIO AQUÍ: Redirigir al dashboard de finanzas
-            return redirect()->route('finanzas.dashboard')
+            // Si hay errores de validación, redirigimos de nuevo a la página anterior
+            return redirect()->back()
                 ->withInput()
                 ->withErrors($e->errors(), 'expenseCreation');
         }
@@ -73,9 +55,8 @@ class ExpenseController extends Controller
             'comment' => $request->comment,
         ]);
 
-        // Redireccionar al dashboard de finanzas después de guardar exitosamente
-        // CAMBIO AQUÍ: Redirigir al dashboard de finanzas
-        return redirect()->route('finanzas.dashboard')->with('success', 'Gasto registrado exitosamente.');
+        // Redirigir hacia atrás para permanecer en la página actual
+        return redirect()->back()->with('success', 'Gasto registrado exitosamente.');
     }
 
     /**
@@ -93,7 +74,6 @@ class ExpenseController extends Controller
         // Formatear la fecha para el campo de entrada (type="date" necesita YYYY-MM-DD)
         $expense->transaction_date_formatted = Carbon::parse($expense->transaction_date)->format('Y-m-d');
 
-        // CAMBIO AQUÍ: La vista ahora está en 'finanzas.expenses.edit'
         return view('finanzas.expenses.edit', compact('expense', 'expenseCategories', 'paymentMethods'));
     }
 
@@ -127,7 +107,6 @@ class ExpenseController extends Controller
             'comment' => $request->comment,
         ]);
 
-        // CAMBIO AQUÍ: Redirigir a la lista de gastos bajo finanzas
         return redirect()->route('finanzas.expenses.index')->with('success', 'Gasto actualizado exitosamente.');
     }
 
@@ -142,7 +121,6 @@ class ExpenseController extends Controller
 
         $expense->delete();
 
-        // CAMBIO AQUÍ: Redirigir a la lista de gastos bajo finanzas
         return redirect()->route('finanzas.expenses.index')->with('success', 'Gasto eliminado exitosamente.');
     }
 }
